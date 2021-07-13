@@ -1,4 +1,9 @@
-# AI battle ——Rodirou
+# Sora Ginko
+
+>AI battle --Rodirou
+> 
+> PPCA summer work
+
 `powered by walotta`
 ## 游戏规则
 * 棋盘由9x9个格子构成，格子间有凹槽。
