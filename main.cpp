@@ -1,10 +1,14 @@
 #include "AIController.h"
 #include <utility>
-#pragma GCC optimize("Ofast")
+#include <queue>
+//#pragma GCC optimize("Ofast")
 using std::cerr;
 using std::endl;
 using std::make_pair;
 using std::pair;
+using std::queue;
+
+#define SEARCH_LAYOR 2
 
 extern int ai_side;
 std::string ai_name = "Sora Ginko";
@@ -59,21 +63,42 @@ public:
 	    return true;
     }
 
-    bool finish(){
-	    if(my_pos.first==(ai_side==0?0:8))
+    bool finish(pair<int,int>pos,bool check_my) const{
+	    if(pos.first==((ai_side==0&&check_my)?0:8))
 	        return true;
 	    else return false;
+	}
+
+	int measureLength(pair<int,int>pos,bool check_my)const{
+	    bool field[9][9]={false};
+	    queue<pair<int,pair<int,int>>> waitList;
+	    waitList.push(make_pair(0,pos));
+	    field[pos.first][pos.second]=true;
+	    while(!waitList.empty()){
+	        auto now=waitList.front();
+	        waitList.pop();
+	        if(finish(now.second,check_my)){
+	            return now.first;
+	        }
+	        int d_row[]={0,0,-1,1};
+	        int d_col[]={-1,1,0,0};
+	        for(int i=0;i<4;i++){
+	            if(can_walk(now.second,now.second.first+d_row[i],now.second.second+d_col[i])&&(!field[now.second.first+d_row[i]][now.second.second+d_col[i]])){
+	                waitList.push(make_pair(now.first+1, make_pair(now.second.first+d_row[i],now.second.second+d_col[i])));
+	                field[now.second.first+d_row[i]][now.second.second+d_col[i]]=true;
+	            }
+	        }
+	    }
+	    return -1;
 	}
 }pic;
 
 class DISSIONTREE{
 private:
-	static double evaluate(const PIC& cal_pic){
-		if(ai_side){
-			return cal_pic.my_pos.first-8;
-		}else{
-			return -cal_pic.my_pos.first;
-		}
+	static double evaluate(const PIC& cal_pic,pair<int,pair<int,int>>add_action){
+        int length=cal_pic.measureLength(cal_pic.my_pos,true);
+        if(length==-1)return -1000;
+        else return 1000-length;
 	}
 
 	struct node{
@@ -84,7 +109,7 @@ private:
 		int layer_cnt;
 		double score;
         void init(){
-            score=evaluate(status);
+            score=evaluate(status,add_action);
         }
         void read_action(pair<int,pair<int,int>> loc){
             if(layer_cnt%2==0){
@@ -138,7 +163,7 @@ private:
 			if(son!=nullptr)delete son;
 		}
 	};
-	int search_limit=2;
+	int search_limit=SEARCH_LAYOR;
 	node* root=nullptr;
 public:
 	void readIN(std::pair<int, std::pair<int, int> > loc){
@@ -281,6 +306,10 @@ public:
 					for(int j=0;j<8;j++){
 						if(now_pos->status.board_statue[i][j]=='n'&&(i-1<0||now_pos->status.board_statue[i-1][j]!='1')&&(i+1>=8||now_pos->status.board_statue[i+1][j]!='1')){
 							node* tem_node=new node(now_pos->status, make_pair(1, make_pair(i, j)), now_pos->layer_cnt+1);
+							if(tem_node->status.measureLength((now_pos->layer_cnt+1)%2==0?tem_node->status.other_pos:tem_node->status.my_pos,(!(now_pos->layer_cnt+1)%2==0))==-1){
+							    delete tem_node;
+                                continue;
+							}
 						    if(build_node==nullptr)
 						        build_node=tem_node;
 						    else{
@@ -295,6 +324,10 @@ public:
 					for(int j=0;j<8;j++){
 						if(now_pos->status.board_statue[i][j]=='n'&&(j-1<0||now_pos->status.board_statue[i][j-1]!='2')&&(j+1>=8||now_pos->status.board_statue[i][j+1]!='2')){
                             node* tem_node=new node(now_pos->status, make_pair(2, make_pair(i, j)), now_pos->layer_cnt+1);
+                            if(tem_node->status.measureLength((now_pos->layer_cnt+1)%2==0?tem_node->status.other_pos:tem_node->status.my_pos,(!(now_pos->layer_cnt+1)%2==0))==-1){
+                                delete tem_node;
+                                continue;
+                            }
                             if(build_node==nullptr)
                                 build_node=tem_node;
                             else{
