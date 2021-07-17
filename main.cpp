@@ -1,14 +1,27 @@
 #include "AIController.h"
 #include <utility>
+#include <vector>
 #include <queue>
+#include <unordered_map>
 //#pragma GCC optimize("Ofast")
 using std::cerr;
 using std::endl;
 using std::make_pair;
 using std::pair;
 using std::queue;
+using std::min;
+using std::max;
+using std::unordered_map;
+using std::vector;
 
-#define SEARCH_LAYOR 2
+#define SEARCH_LAYER 2
+#define INFINITY 10000000
+#define my_rate (-2)
+#define other_rate 1
+#define board_row_length 4
+#define board_col_length 4
+#define board_my_cnt_rate 1
+#define board_other_cnt_rate (-1)
 
 extern int ai_side;
 std::string ai_name = "Sora Ginko";
@@ -16,7 +29,7 @@ std::string ai_name = "Sora Ginko";
 class PIC
 {
 private:
-	char board_statue[8][8];
+	char board_status[8][8];
 public:
 	friend class DISSIONTREE;
 	int my_board=0,other_board=0;
@@ -26,7 +39,7 @@ public:
 	PIC(){
 		for(int i=0;i<8;i++)
 			for(int j=0;j<8;j++){
-				board_statue[i][j]='n';
+				board_status[i][j]='n';
 			}
 	}
 
@@ -47,23 +60,23 @@ public:
 	    if(abs(nrow-row)+abs(ncol-col)<=1){
             if(nrow<0||nrow>8||ncol<0||ncol>8)return false;
             if(row<nrow){
-                if((col<8&&board_statue[row][col]=='2')||(col-1>=0&&board_statue[row][col-1]=='2'))
+                if((col<8&&board_status[row][col]=='2')||(col-1>=0&&board_status[row][col-1]=='2'))
                     return false;
             }else if(row>nrow){
-                if((col<8&&board_statue[row-1][col]=='2')||(col-1>=0&&board_statue[row-1][col-1]=='2'))
+                if((col<8&&board_status[row-1][col]=='2')||(col-1>=0&&board_status[row-1][col-1]=='2'))
                     return false;
             }else if(col<ncol){
-                if((row>0&&board_statue[row-1][col]=='1')||(row<8&&board_statue[row][col]=='1'))
+                if((row>0&&board_status[row-1][col]=='1')||(row<8&&board_status[row][col]=='1'))
                     return false;
             }else{
-                if((row>0&&board_statue[row-1][col-1]=='1')||(row<8&&board_statue[row][col-1]=='1'))
+                if((row>0&&board_status[row-1][col-1]=='1')||(row<8&&board_status[row][col-1]=='1'))
                     return false;
             }
         }
 	    return true;
     }
 
-    bool finish(pair<int,int>pos,bool check_my) const{
+    static bool finish(pair<int,int>pos,bool check_my) {
 	    if(pos.first==((ai_side==0&&check_my)?0:8))
 	        return true;
 	    else return false;
@@ -95,320 +108,259 @@ public:
 
 class DISSIONTREE{
 private:
-	static double evaluate(const PIC& cal_pic,pair<int,pair<int,int>>add_action){
-        int length=cal_pic.measureLength(cal_pic.my_pos,true);
-        if(length==-1)return -1000;
-        else return 1000-length;
+	static double evaluate(const PIC& cal_pic){
+        int my_length=cal_pic.measureLength(cal_pic.my_pos,true);
+        int other_length=cal_pic.measureLength(cal_pic.other_pos,false);
+        if(my_length==-1)return -1000000;
+        if(other_length==1)return -10000;
+        if(my_length==1)return 10000;
+        else return my_rate*my_length+other_rate*other_length+board_my_cnt_rate*cal_pic.my_board+board_other_cnt_rate*cal_pic.other_board;
 	}
 
-	struct node{
-		PIC status;
-		node* son=nullptr;
-		node* brother=nullptr;
-		pair<int,pair<int,int>>add_action;
-		int layer_cnt;
-		double score;
-        void init(){
-            score=evaluate(status,add_action);
-        }
-        void read_action(pair<int,pair<int,int>> loc){
-            if(layer_cnt%2==0){
-                switch (loc.first){
-                    case -1:
-                        init();
-                        break;
-                    case 0:
-                        status.my_pos=loc.second;
-                        init();
-                        break;
-                    case 1:
-                        status.board_statue[loc.second.first][loc.second.second]='1';
-                        status.my_board++;
-                        init();
-                        break;
-                    case 2:
-                        status.board_statue[loc.second.first][loc.second.second]='2';
-                        status.my_board++;
-                        init();
-                        break;
-                }
-            }else{
-                switch (loc.first){
-                    case -1:
-                        init();
-                        break;
-                    case 0:
-                        status.other_pos=loc.second;
-                        init();
-                        break;
-                    case 1:
-                        status.board_statue[loc.second.first][loc.second.second]='1';
-                        status.other_board++;
-                        init();
-                        break;
-                    case 2:
-                        status.board_statue[loc.second.first][loc.second.second]='2';
-                        status.other_board++;
-                        init();
-                        break;
-                }
+	static void apply_action(PIC& now_status,pair<int,pair<int,int>>loc,bool is_my){
+        if(is_my){
+            switch (loc.first){
+                case -1:
+                    break;
+                case 0:
+                    now_status.my_pos=loc.second;
+                    break;
+                case 1:
+                    now_status.board_status[loc.second.first][loc.second.second]='1';
+                    now_status.my_board++;
+                    break;
+                case 2:
+                    now_status.board_status[loc.second.first][loc.second.second]='2';
+                    now_status.my_board++;
+                    break;
+            }
+        }else{
+            switch (loc.first){
+                case -1:
+                    break;
+                case 0:
+                    now_status.other_pos=loc.second;
+                    break;
+                case 1:
+                    now_status.board_status[loc.second.first][loc.second.second]='1';
+                    now_status.other_board++;
+                    break;
+                case 2:
+                    now_status.board_status[loc.second.first][loc.second.second]='2';
+                    now_status.other_board++;
+                    break;
             }
         }
-		node(const PIC& pre_status,const pair<int,pair<int,int>>& _add_action,int _layer_cnt): status(pre_status), add_action(_add_action), layer_cnt(_layer_cnt){
-            read_action(_add_action);
-            init();
+    }
+
+    void roll_back_action(PIC& now_status,pair<int,pair<int,int>>loc,bool is_my){
+        if(is_my){
+            switch (loc.first){
+                case -1:
+                    break;
+                case 0:
+                    now_status.my_pos=loc.second;
+                    break;
+                case 1:
+                    now_status.board_status[loc.second.first][loc.second.second]='n';
+                    now_status.my_board--;
+                    break;
+                case 2:
+                    now_status.board_status[loc.second.first][loc.second.second]='n';
+                    now_status.my_board--;
+                    break;
+            }
+        }else{
+            switch (loc.first){
+                case -1:
+                    break;
+                case 0:
+                    now_status.other_pos=loc.second;
+                    break;
+                case 1:
+                    now_status.board_status[loc.second.first][loc.second.second]='n';
+                    now_status.other_board--;
+                    break;
+                case 2:
+                    now_status.board_status[loc.second.first][loc.second.second]='n';
+                    now_status.other_board--;
+                    break;
+            }
         }
-		~node(){
-			if(brother!=nullptr)delete brother;
-			if(son!=nullptr)delete son;
-		}
-	};
-	int search_limit=SEARCH_LAYOR;
-	node* root=nullptr;
+    }
+
+	int search_limit=SEARCH_LAYER;
 public:
-	void readIN(std::pair<int, std::pair<int, int> > loc){
-		if(root==nullptr){
-			root=new node(pic,loc,1);
-		}else{
-			auto it=root->son;
-			if(it->add_action==loc){
-				auto new_root=it;
-				root->son=it->brother;
-				delete root;
-				root=new_root;
-				root->brother=nullptr;
-			}else{
-				while(it->brother->add_action!=loc)
-					it=it->brother;
-				auto new_root=it->brother;
-				it->brother=it->brother->brother;
-				delete root;
-				root=new_root;
-				root->brother=nullptr;
-			}
-		}
+	void readIN(std::pair<int, std::pair<int, int> > loc,bool my_action){
+        apply_action(pic,loc, my_action);
 	}
 
-	inline void build_next_layor(node* now_pos){
-		//todo
-        //if(now_pos->status.finish())return;
-		if(now_pos->son==nullptr){
-			//build son layor
-			//operator 0 move
-			node* build_node=nullptr;
-			if((now_pos->layer_cnt+1)%2==0){
-				//推测己方决策
-				int d_row[]={0,0,-1,1};
-				int d_col[]={-1,1,0,0};
-				for(int i=0;i<4;i++){
-				    int n_row=now_pos->status.my_pos.first+d_row[i];
-				    int n_col=now_pos->status.my_pos.second+d_col[i];
-				    if(n_row==now_pos->status.other_pos.first && n_col==now_pos->status.other_pos.second){
-				        //需要跳跃
-                        int nn_row=now_pos->status.my_pos.first+2*d_row[i];
-                        int nn_col=now_pos->status.my_pos.second+2*d_col[i];
-                        if(now_pos->status.can_walk(make_pair(n_row,n_col),nn_row,nn_col)){
-                            node* tem_node=new node(now_pos->status, make_pair(0, make_pair(nn_row,nn_col)),now_pos->layer_cnt+1);
-                            if(build_node==nullptr)
-                                build_node=tem_node;
-                            else{
-                                tem_node->brother=build_node;
-                                build_node=tem_node;
-                            }
-                        }else{
-                            int dd_beg;
-                            if(i>=0&&i<=1)dd_beg=2;
-                            else dd_beg=0;
-                            for(int j=dd_beg;j<dd_beg+2;j++){
-                                nn_row=n_row+d_row[j];
-                                nn_col=n_col+d_col[j];
-                                if(now_pos->status.can_walk(make_pair(n_row,n_col),nn_row,nn_col)){
-                                    node* tem_node=new node(now_pos->status, make_pair(0, make_pair(nn_row,nn_col)),now_pos->layer_cnt+1);
-                                    if(build_node==nullptr)
-                                        build_node=tem_node;
-                                    else{
-                                        tem_node->brother=build_node;
-                                        build_node=tem_node;
-                                    }
-                                }
-                            }
-                        }
-				    }else{
-				        //直接走
-				        if(now_pos->status.can_walk(now_pos->status.my_pos,n_row,n_col)){
-				            node* tem_node=new node(now_pos->status, make_pair(0, make_pair(n_row,n_col)),now_pos->layer_cnt+1);
-				            if(build_node==nullptr)
-				                build_node=tem_node;
-				            else{
-				                tem_node->brother=build_node;
-				                build_node=tem_node;
-				            }
-				        }
-				    }
-                }
-			}else{
-				//推测对方决策
-                int d_row[]={0,0,-1,1};
-                int d_col[]={-1,1,0,0};
-                for(int i=0;i<4;i++){
-                    int n_row=now_pos->status.other_pos.first+d_row[i];
-                    int n_col=now_pos->status.other_pos.second+d_col[i];
-                    if(n_row==now_pos->status.my_pos.first && n_col==now_pos->status.my_pos.second){
-                        //需要跳跃
-                        int nn_row=now_pos->status.other_pos.first+2*d_row[i];
-                        int nn_col=now_pos->status.other_pos.second+2*d_col[i];
-                        if(now_pos->status.can_walk(make_pair(n_row,n_col),nn_row,nn_col)){
-                            node* tem_node=new node(now_pos->status, make_pair(0, make_pair(nn_row,nn_col)),now_pos->layer_cnt+1);
-                            if(build_node==nullptr)
-                                build_node=tem_node;
-                            else{
-                                tem_node->brother=build_node;
-                                build_node=tem_node;
-                            }
-                        }else{
-                            int dd_beg;
-                            if(i>=0&&i<=1)dd_beg=2;
-                            else dd_beg=0;
-                            for(int j=dd_beg;j<dd_beg+2;j++){
-                                nn_row=n_row+d_row[j];
-                                nn_col=n_col+d_col[j];
-                                if(now_pos->status.can_walk(make_pair(n_row,n_col),nn_row,nn_col)){
-                                    node* tem_node=new node(now_pos->status, make_pair(0, make_pair(nn_row,nn_col)),now_pos->layer_cnt+1);
-                                    if(build_node==nullptr)
-                                        build_node=tem_node;
-                                    else{
-                                        tem_node->brother=build_node;
-                                        build_node=tem_node;
-                                    }
-                                }
-                            }
-                        }
+	inline vector<pair<int,pair<int,int>>> build_next_layer(PIC& now_status,bool guess_my){
+        vector<pair<int,pair<int,int>>> ansList;
+        if(guess_my){
+            //推测己方决策
+            int d_row[]={0,0,-1,1};
+            int d_col[]={-1,1,0,0};
+            for(int i=0;i<4;i++){
+                int n_row=now_status.my_pos.first+d_row[i];
+                int n_col=now_status.my_pos.second+d_col[i];
+                if(n_row==now_status.other_pos.first && n_col==now_status.other_pos.second){
+                    //需要跳跃
+                    int nn_row=now_status.my_pos.first+2*d_row[i];
+                    int nn_col=now_status.my_pos.second+2*d_col[i];
+                    if(now_status.can_walk(make_pair(n_row,n_col),nn_row,nn_col)){
+                        ansList.emplace_back(0, make_pair(nn_row,nn_col));
                     }else{
-                        //直接走
-                        if(now_pos->status.can_walk(now_pos->status.other_pos,n_row,n_col)){
-                            node* tem_node=new node(now_pos->status, make_pair(0, make_pair(n_row,n_col)),now_pos->layer_cnt+1);
-                            if(build_node==nullptr)
-                                build_node=tem_node;
-                            else{
-                                tem_node->brother=build_node;
-                                build_node=tem_node;
+                        int dd_beg;
+                        if(i>=0&&i<=1)dd_beg=2;
+                        else dd_beg=0;
+                        for(int j=dd_beg;j<dd_beg+2;j++){
+                            nn_row=n_row+d_row[j];
+                            nn_col=n_col+d_col[j];
+                            if(now_status.can_walk(make_pair(n_row,n_col),nn_row,nn_col)){
+                                ansList.emplace_back(0, make_pair(nn_row,nn_col));
                             }
                         }
                     }
+                }else{
+                    //直接走
+                    if(now_status.can_walk(now_status.my_pos,n_row,n_col)){
+                        ansList.emplace_back(0, make_pair(n_row,n_col));
+                    }
                 }
-			}
-
-			//todo
-
-			if(((now_pos->layer_cnt+1)%2==0&&now_pos->status.my_board<10)||((now_pos->layer_cnt+1)%2==1&&now_pos->status.other_board<10)){
-				//operator 1 place board 垂直
-				for(int i=0;i<8;i++)
-					for(int j=0;j<8;j++){
-						if(now_pos->status.board_statue[i][j]=='n'&&(i-1<0||now_pos->status.board_statue[i-1][j]!='1')&&(i+1>=8||now_pos->status.board_statue[i+1][j]!='1')){
-							node* tem_node=new node(now_pos->status, make_pair(1, make_pair(i, j)), now_pos->layer_cnt+1);
-							if(tem_node->status.measureLength((now_pos->layer_cnt+1)%2==0?tem_node->status.other_pos:tem_node->status.my_pos,(!(now_pos->layer_cnt+1)%2==0))==-1){
-							    delete tem_node;
-                                continue;
-							}
-						    if(build_node==nullptr)
-						        build_node=tem_node;
-						    else{
-								tem_node->brother=build_node;
-								build_node=tem_node;
-							}
-						}
-					}
-			
-				//operator 2 place board 水平
-				for(int i=0;i<8;i++)
-					for(int j=0;j<8;j++){
-						if(now_pos->status.board_statue[i][j]=='n'&&(j-1<0||now_pos->status.board_statue[i][j-1]!='2')&&(j+1>=8||now_pos->status.board_statue[i][j+1]!='2')){
-                            node* tem_node=new node(now_pos->status, make_pair(2, make_pair(i, j)), now_pos->layer_cnt+1);
-                            if(tem_node->status.measureLength((now_pos->layer_cnt+1)%2==0?tem_node->status.other_pos:tem_node->status.my_pos,(!(now_pos->layer_cnt+1)%2==0))==-1){
-                                delete tem_node;
-                                continue;
+            }
+        }else{
+            int d_row[]={0,0,-1,1};
+            int d_col[]={-1,1,0,0};
+            for(int i=0;i<4;i++){
+                int n_row=now_status.other_pos.first+d_row[i];
+                int n_col=now_status.other_pos.second+d_col[i];
+                if(n_row==now_status.my_pos.first && n_col==now_status.my_pos.second){
+                    //需要跳跃
+                    int nn_row=now_status.other_pos.first+2*d_row[i];
+                    int nn_col=now_status.other_pos.second+2*d_col[i];
+                    if(now_status.can_walk(make_pair(n_row,n_col),nn_row,nn_col)){
+                        ansList.emplace_back(0, make_pair(nn_row,nn_col));
+                    }else{
+                        int dd_beg;
+                        if(i>=0&&i<=1)dd_beg=2;
+                        else dd_beg=0;
+                        for(int j=dd_beg;j<dd_beg+2;j++){
+                            nn_row=n_row+d_row[j];
+                            nn_col=n_col+d_col[j];
+                            if(now_status.can_walk(make_pair(n_row,n_col),nn_row,nn_col)){
+                                ansList.emplace_back(0, make_pair(nn_row,nn_col));
                             }
-                            if(build_node==nullptr)
-                                build_node=tem_node;
-                            else{
-                                tem_node->brother=build_node;
-                                build_node=tem_node;
-                            }
-						}
-					}
-			}
+                        }
+                    }
+                }else{
+                    //直接走
+                    if(now_status.can_walk(now_status.other_pos,n_row,n_col)){
+                        ansList.emplace_back(0, make_pair(n_row,n_col));
+                    }
+                }
+            }
+        }
 
+        if((guess_my&&now_status.my_board<10)||(!guess_my&&now_status.other_board<10)){
+            //operator 1 place board 垂直
+            for(int i=0;i<8;i++)
+                for(int j=0;j<8;j++){
+                    if(abs(i-now_status.my_pos.first)>board_row_length&&abs(i-now_status.other_pos.first)>board_row_length)continue;
+                    if(abs(j-now_status.my_pos.second)>board_col_length&&abs(j-now_status.other_pos.second)>board_col_length)continue;
+                    if(now_status.board_status[i][j]=='n'&&(i-1<0||now_status.board_status[i-1][j]!='1')&&(i+1>=8||now_status.board_status[i+1][j]!='1')){
+                        apply_action(now_status, make_pair(1, make_pair(i, j)),guess_my);
+                        if(now_status.measureLength(now_status.other_pos, false)!=-1&&now_status.measureLength(now_status.my_pos, true)!=-1)
+                            ansList.emplace_back(1, make_pair(i, j));
+                        roll_back_action(now_status, make_pair(1, make_pair(i, j)),guess_my);
+                    }
+                }
 
-			now_pos->son=build_node;
-		}
+            //operator 2 place board 水平
+            for(int i=0;i<8;i++)
+                for(int j=0;j<8;j++){
+                    if(abs(i-now_status.my_pos.first)>board_row_length&&abs(i-now_status.other_pos.first)>board_row_length)continue;
+                    if(abs(j-now_status.my_pos.second)>board_col_length&&abs(j-now_status.other_pos.second)>board_col_length)continue;
+                    if(now_status.board_status[i][j]=='n'&&(j-1<0||now_status.board_status[i][j-1]!='2')&&(j+1>=8||now_status.board_status[i][j+1]!='2')){
+                        apply_action(now_status, make_pair(2, make_pair(i, j)),guess_my);
+                        if(now_status.measureLength(now_status.other_pos, false)!=-1&&now_status.measureLength(now_status.my_pos, true)!=-1)
+                            ansList.emplace_back(2, make_pair(i, j));
+                        roll_back_action(now_status, make_pair(2, make_pair(i, j)),guess_my);
+                    }
+                }
+        }
+        return ansList;
 	}
 
-	double dfs_decide(node* now_pos,int father_layer){
-		if(now_pos->layer_cnt!=father_layer+search_limit){
-			build_next_layor(now_pos);
-			auto ans=dfs_decide(now_pos->son, father_layer);
-			double choose_score=ans;
-			node* it=now_pos->son->brother;
-			if(now_pos->son->layer_cnt%2==0){
+	pair<double,pair<double,double>> dfs_decide(PIC& now_status,int now_layer,double alpha,double beta,bool next_is_my){
+		if(now_layer!=search_limit){
+            vector<pair<int,pair<int,int>>> actionList=build_next_layer(now_status,next_is_my);
+            double ans=-INFINITY;
+			if(next_is_my){
 				//己方决策
-				while(it!=nullptr){
-					auto tem_ans=dfs_decide(it, father_layer);
-					if(tem_ans>choose_score){
-						choose_score=tem_ans;
-					}
-					it=it->brother;
+				for(auto act:actionList){
+				    auto his_pos=now_status.my_pos;
+                    apply_action(now_status,act, true);
+
+                    auto res=dfs_decide(now_status,now_layer+1,alpha,beta,!next_is_my);
+                    if(ans==-INFINITY||res.first>ans){
+                        ans=res.first;
+                    }
+                    alpha=max(alpha,max(res.second.first,res.second.second));
+
+                    if(act.first==0)roll_back_action(now_status, make_pair(0,his_pos), true);
+                    else roll_back_action(now_status,act, true);
+                    if(alpha>=beta)break;
 				}
-				return choose_score;
+				return make_pair(ans, make_pair(alpha,beta));
 			}else{
 				//对方决策
-				while(it!=nullptr){
-					auto tem_ans=dfs_decide(it, father_layer);
-					if(tem_ans<choose_score){
-						choose_score=tem_ans;
-					}
-					it=it->brother;
-				}
-				return choose_score;
+                for(auto act:actionList){
+                    auto his_pos=now_status.other_pos;
+                    apply_action(now_status,act, false);
+
+                    auto res=dfs_decide(now_status,now_layer+1,alpha,beta,!next_is_my);
+                    if(ans==-INFINITY||res.first<ans){
+                        ans=res.first;
+                    }
+                    beta=min(beta,min(res.second.first,res.second.second));
+
+                    if(act.first==0)roll_back_action(now_status, make_pair(0,his_pos), false);
+                    else roll_back_action(now_status,act, false);
+                    if(alpha>=beta)break;
+                }
+                return make_pair(ans, make_pair(alpha,beta));
 			}
 		}else{
-			double choose_score=now_pos->score;
-			node* it=now_pos->brother;
-			if(now_pos->layer_cnt%2==0){
-				while(it!=nullptr){
-					if(it->score>choose_score){
-						choose_score=it->score;
-					}
-					it=it->brother;
-				}
-				return choose_score;
-			}else{
-				while(it!=nullptr){
-					if(it->score<choose_score){
-						choose_score=it->score;
-					}
-					it=it->brother;
-				}
-				return choose_score;
-			}
+			double score=evaluate(now_status);
+			return make_pair(score, make_pair(score,score));
 		}
 	}
 
 	inline pair<int,pair<int,int>> decide(){
-        build_next_layor(root);
-        auto it=root->son;
-        pair<double,node*> decide_res;
-        decide_res.second=nullptr;
-        while(it!=nullptr){
-            auto tem_ans=dfs_decide(it,root->layer_cnt);
-            //std::cerr<<it->add_action.first<<' '<<it->add_action.second.first<<' '<<it->add_action.second.second<<' '<<it->score<<' '<<tem_ans<<std::endl;
-            if(decide_res.second==nullptr||decide_res.first<tem_ans){
-                decide_res.first=tem_ans;
-                decide_res.second=it;
+	    double alpha=-INFINITY;
+	    double beta=INFINITY;
+        vector<pair<int,pair<int,int>>> actionList=build_next_layer(pic,true);
+        double ans=-INFINITY;
+        pair<int,pair<int,int>> choose_act;
+        for(auto act:actionList){
+            auto his_pos=pic.my_pos;
+            apply_action(pic,act, true);
+
+            auto res=dfs_decide(pic,1,alpha,beta, false);
+            if(res.first>ans){
+                ans=res.first;
+                choose_act=act;
             }
-            it=it->brother;
+            alpha=max(alpha,max(res.second.first,res.second.second));
+
+            if(act.first==0)roll_back_action(pic, make_pair(0,his_pos), true);
+            else roll_back_action(pic,act, true);
+            if(alpha>=beta)break;
         }
-        readIN(decide_res.second->add_action);
-		return decide_res.second->add_action;
+
+        readIN(choose_act, true);
+		return choose_act;
 	}
 }decisionTree;
 
@@ -418,7 +370,7 @@ void init() {
 }
 
 std::pair<int, std::pair<int, int> > action(std::pair<int, std::pair<int, int> > loc) {
-	decisionTree.readIN(loc);
+	decisionTree.readIN(loc, false);
 	auto decision=decisionTree.decide();
 	return decision;
 }
