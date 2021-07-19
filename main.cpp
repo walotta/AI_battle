@@ -104,6 +104,18 @@ public:
 	    }
 	    return -1;
 	}
+
+	inline int hash(){
+	    int zs=100000429;
+	    int store=0;
+	    for(int i=0;i<8;i++)
+	        for(int j=0;j<8;j++)
+	            store+=board_status[i][j];
+	    int ans=store%zs;
+	    ans+=10000019*(my_pos.first+3967*my_pos.second+877*my_board);
+	    ans+=other_pos.first+3967*other_pos.second+877*other_board;
+	    return ans;
+	}
 }pic;
 
 class DISSIONTREE{
