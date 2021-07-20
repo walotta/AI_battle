@@ -16,11 +16,11 @@ using std::vector;
 
 #define SEARCH_LAYER 2
 #define INFINITY 10000000
-#define my_rate (-2)
-#define other_rate 1
+#define my_rate (-3)
+#define other_rate 2
 #define board_row_length 4
 #define board_col_length 4
-#define board_my_cnt_rate 1
+#define board_my_cnt_rate 2.6125
 #define board_other_cnt_rate (-1)
 
 extern int ai_side;
@@ -77,9 +77,15 @@ public:
     }
 
     static bool finish(pair<int,int>pos,bool check_my) {
-	    if(pos.first==((ai_side==0&&check_my)?0:8))
-	        return true;
-	    else return false;
+        if(check_my){
+            if(pos.first==((ai_side==0)?0:8))
+                return true;
+            else return false;
+        }else{
+            if(pos.first==((ai_side==1)?0:8))
+                return true;
+            else return false;
+        }
 	}
 
 	int measureLength(pair<int,int>pos,bool check_my)const{
@@ -119,16 +125,16 @@ public:
 }pic;
 
 class DISSIONTREE{
-private:
+public:
 	static double evaluate(const PIC& cal_pic){
         int my_length=cal_pic.measureLength(cal_pic.my_pos,true);
         int other_length=cal_pic.measureLength(cal_pic.other_pos,false);
         if(my_length==-1)return -1000000;
-        if(other_length==1)return -10000;
-        if(my_length==1)return 10000;
+        if(other_length==0)return -10000;
+        if(my_length==0)return 10000;
         else return my_rate*my_length+other_rate*other_length+board_my_cnt_rate*cal_pic.my_board+board_other_cnt_rate*cal_pic.other_board;
 	}
-
+private:
 	static void apply_action(PIC& now_status,pair<int,pair<int,int>>loc,bool is_my){
         if(is_my){
             switch (loc.first){
@@ -384,5 +390,6 @@ void init() {
 std::pair<int, std::pair<int, int> > action(std::pair<int, std::pair<int, int> > loc) {
 	decisionTree.readIN(loc, false);
 	auto decision=decisionTree.decide();
+    std::cerr<<pic.measureLength(pic.my_pos,true)<<' '<<DISSIONTREE::evaluate(pic)<<std::endl;
 	return decision;
 }
