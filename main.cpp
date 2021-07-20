@@ -57,21 +57,19 @@ public:
     {
 	    int row=pos.first;
 	    int col=pos.second;
-	    if(abs(nrow-row)+abs(ncol-col)<=1){
-            if(nrow<0||nrow>8||ncol<0||ncol>8)return false;
-            if(row<nrow){
-                if((col<8&&board_status[row][col]=='2')||(col-1>=0&&board_status[row][col-1]=='2'))
-                    return false;
-            }else if(row>nrow){
-                if((col<8&&board_status[row-1][col]=='2')||(col-1>=0&&board_status[row-1][col-1]=='2'))
-                    return false;
-            }else if(col<ncol){
-                if((row>0&&board_status[row-1][col]=='1')||(row<8&&board_status[row][col]=='1'))
-                    return false;
-            }else{
-                if((row>0&&board_status[row-1][col-1]=='1')||(row<8&&board_status[row][col-1]=='1'))
-                    return false;
-            }
+	    if(nrow<0||nrow>8||ncol<0||ncol>8)return false;
+        if(row<nrow){
+            if((col<8&&board_status[row][col]=='2')||(col-1>=0&&board_status[row][col-1]=='2'))
+                return false;
+        }else if(row>nrow){
+            if((col<8&&board_status[row-1][col]=='2')||(col-1>=0&&board_status[row-1][col-1]=='2'))
+                return false;
+        }else if(col<ncol){
+            if((row>0&&board_status[row-1][col]=='1')||(row<8&&board_status[row][col]=='1'))
+                return false;
+        }else{
+            if((row>0&&board_status[row-1][col-1]=='1')||(row<8&&board_status[row][col-1]=='1'))
+                return false;
         }
 	    return true;
     }
