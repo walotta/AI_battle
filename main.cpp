@@ -17,7 +17,7 @@ using std::vector;
 #define SEARCH_LAYER 3 //11
 #define INFINITY 10000000
 #define my_rate (-2)
-#define other_rate 2
+#define other_rate 1
 #define board_row_length 4
 #define board_col_length 4
 #define board_cnt_rate 3

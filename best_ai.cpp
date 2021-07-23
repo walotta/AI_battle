@@ -1,4 +1,4 @@
- #include "AIController.h"
+#include "AIController.h"
 #include <utility>
 #include <vector>
 #include <queue>
@@ -14,14 +14,15 @@ using std::max;
 using std::unordered_map;
 using std::vector;
 
-#define SEARCH_LAYER 3
+#define SEARCH_LAYER 3 //11
 #define INFINITY 10000000
-#define my_rate (-3)
-#define other_rate 2
-#define board_row_length 3
-#define board_col_length 3
-#define board_my_cnt_rate 2.6125
-#define board_other_cnt_rate (-1)
+#define my_rate (-2)
+#define other_rate 1
+#define board_row_length 4
+#define board_col_length 4
+#define board_cnt_rate 3
+#define my_board_rate_low 0.5
+#define my_board_rate_high 3
 
 extern int ai_side;
 std::string ai_name = "Sora Ginko";
@@ -124,13 +125,21 @@ public:
 
 class DISSIONTREE{
 public:
-	static double evaluate(const PIC& cal_pic){
+	static double evaluate(const PIC& cal_pic,bool my_side){
         int my_length=cal_pic.measureLength(cal_pic.my_pos,true);
         int other_length=cal_pic.measureLength(cal_pic.other_pos,false);
         if(my_length==-1)return -1000000;
         if(other_length==0)return -10000;
         if(my_length==0)return 10000;
-        else return my_rate*my_length+other_rate*other_length+board_my_cnt_rate*cal_pic.my_board+board_other_cnt_rate*cal_pic.other_board;
+        else{
+            double score=0;
+            if(cal_pic.my_board<=cal_pic.other_board){
+                score=my_rate*my_length+other_rate*other_length-board_cnt_rate*(cal_pic.my_board*my_board_rate_low-cal_pic.other_board);
+            }else{
+                score=my_rate*my_length+other_rate*other_length-board_cnt_rate*(cal_pic.my_board*my_board_rate_high-cal_pic.other_board);
+            }
+            return score;
+        }
 	}
 private:
 	static void apply_action(PIC& now_status,pair<int,pair<int,int>>loc,bool is_my){
@@ -282,26 +291,26 @@ public:
             //operator 1 place board 垂直
             for(int i=0;i<8;i++)
                 for(int j=0;j<8;j++){
-                    if(abs(i-now_status.my_pos.first)>=board_row_length&&abs(i-now_status.other_pos.first)>=board_row_length)continue;
-                    if(abs(j-now_status.my_pos.second)>=board_col_length&&abs(j-now_status.other_pos.second)>=board_col_length)continue;
-                    if(now_status.board_status[i][j]=='n'&&(i-1<0||now_status.board_status[i-1][j]!='1')&&(i+1>=8||now_status.board_status[i+1][j]!='1')){
-                        apply_action(now_status, make_pair(1, make_pair(i, j)),guess_my);
-                        if(now_status.measureLength(now_status.other_pos, false)!=-1&&now_status.measureLength(now_status.my_pos, true)!=-1)
-                            ansList.emplace_back(1, make_pair(i, j));
-                        roll_back_action(now_status, make_pair(1, make_pair(i, j)),guess_my);
+                    if((abs(i-now_status.my_pos.first)<=board_row_length&&abs(j-now_status.my_pos.second)<=board_col_length)||(abs(i-now_status.other_pos.first)<=board_row_length&&abs(j-now_status.other_pos.second)<=board_col_length)){
+                        if(now_status.board_status[i][j]=='n'&&(i-1<0||now_status.board_status[i-1][j]!='1')&&(i+1>=8||now_status.board_status[i+1][j]!='1')){
+                            apply_action(now_status, make_pair(1, make_pair(i, j)),guess_my);
+                            if(now_status.measureLength(now_status.other_pos, false)!=-1&&now_status.measureLength(now_status.my_pos, true)!=-1)
+                                ansList.emplace_back(1, make_pair(i, j));
+                            roll_back_action(now_status, make_pair(1, make_pair(i, j)),guess_my);
+                        }
                     }
                 }
 
             //operator 2 place board 水平
             for(int i=0;i<8;i++)
                 for(int j=0;j<8;j++){
-                    if(abs(i-now_status.my_pos.first)>=board_row_length&&abs(i-now_status.other_pos.first)>=board_row_length)continue;
-                    if(abs(j-now_status.my_pos.second)>=board_col_length&&abs(j-now_status.other_pos.second)>=board_col_length)continue;
-                    if(now_status.board_status[i][j]=='n'&&(j-1<0||now_status.board_status[i][j-1]!='2')&&(j+1>=8||now_status.board_status[i][j+1]!='2')){
-                        apply_action(now_status, make_pair(2, make_pair(i, j)),guess_my);
-                        if(now_status.measureLength(now_status.other_pos, false)!=-1&&now_status.measureLength(now_status.my_pos, true)!=-1)
-                            ansList.emplace_back(2, make_pair(i, j));
-                        roll_back_action(now_status, make_pair(2, make_pair(i, j)),guess_my);
+                    if((abs(i-now_status.my_pos.first)<=board_row_length&&abs(j-now_status.my_pos.second)<=board_col_length)||(abs(i-now_status.other_pos.first)<=board_row_length&&abs(j-now_status.other_pos.second)<=board_col_length)){
+                        if(now_status.board_status[i][j]=='n'&&(j-1<0||now_status.board_status[i][j-1]!='2')&&(j+1>=8||now_status.board_status[i][j+1]!='2')){
+                            apply_action(now_status, make_pair(2, make_pair(i, j)),guess_my);
+                            if(now_status.measureLength(now_status.other_pos, false)!=-1&&now_status.measureLength(now_status.my_pos, true)!=-1)
+                                ansList.emplace_back(2, make_pair(i, j));
+                            roll_back_action(now_status, make_pair(2, make_pair(i, j)),guess_my);
+                        }
                     }
                 }
         }
@@ -318,7 +327,14 @@ public:
 				    auto his_pos=now_status.my_pos;
                     apply_action(now_status,act, true);
 
-                    auto res=dfs_decide(now_status,now_layer+1,alpha,beta,!next_is_my);
+                    //for(int kk=0;kk<now_layer;kk++)std::cerr<<' ';
+                    //std::cerr<<act.first<<' '<<act.second.first<<' '<<act.second.second<<std::endl;
+
+                    bool finish_flag=false;
+                    if(now_status.finish(now_status.my_pos,true))finish_flag=true;
+                    pair<double,pair<double,double>> res;
+                    if(!finish_flag)res=dfs_decide(now_status,now_layer+1,alpha,beta,!next_is_my);
+                    else res=make_pair(10000-now_layer, make_pair(10000-now_layer,10000-now_layer));
                     if(ans==-INFINITY||res.first>ans){
                         ans=res.first;
                     }
@@ -335,7 +351,14 @@ public:
                     auto his_pos=now_status.other_pos;
                     apply_action(now_status,act, false);
 
-                    auto res=dfs_decide(now_status,now_layer+1,alpha,beta,!next_is_my);
+                    //for(int kk=0;kk<now_layer;kk++)std::cerr<<' ';
+                    //std::cerr<<act.first<<' '<<act.second.first<<' '<<act.second.second<<std::endl;
+
+                    bool finish_flag=false;
+                    if(now_status.finish(now_status.other_pos,false))finish_flag=true;
+                    pair<double,pair<double,double>> res;
+                    if(!finish_flag)res=dfs_decide(now_status,now_layer+1,alpha,beta,!next_is_my);
+                    else res=make_pair(-10000-now_layer, make_pair(-10000-now_layer,-10000-now_layer));
                     if(ans==-INFINITY||res.first<ans){
                         ans=res.first;
                     }
@@ -348,7 +371,9 @@ public:
                 return make_pair(ans, make_pair(alpha,beta));
 			}
 		}else{
-			double score=evaluate(now_status);
+			double score=evaluate(now_status,next_is_my)-now_layer;
+            //for(int kk=0;kk<now_layer;kk++)std::cerr<<' ';
+            //std::cerr<<"leave "<<score<<std::endl;
 			return make_pair(score, make_pair(score,score));
 		}
 	}
@@ -364,6 +389,7 @@ public:
             auto his_pos=pic.my_pos;
             apply_action(pic,act, true);
 
+            //std::cerr<<act.first<<' '<<act.second.first<<' '<<act.second.second<<std::endl;
             if(pic.finish(pic.my_pos,true)){
                 choose_act=act;
                 return choose_act;
@@ -378,6 +404,7 @@ public:
 
             if(act.first==0)roll_back_action(pic, make_pair(0,his_pos), true);
             else roll_back_action(pic,act, true);
+            //std::cerr<<"!!"<<res.first<<std::endl;
             if(alpha>=beta)break;
         }
 
